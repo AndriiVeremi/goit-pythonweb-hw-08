@@ -23,7 +23,10 @@ async def get_contacts(
     db: AsyncSession = Depends(get_db),
 ):
     cont_service = ContactService(db)
-    return await cont_service.get_contacts(limit, offset)
+    # return await cont_service.get_contacts(limit, offset)
+    contacts = await cont_service.get_contacts(limit, offset)
+    logger.info(f"Fetched {len(contacts)} contacts")
+    return contacts
 
 
 @router.get("/{contact_id}", response_model=ContactResponse)
@@ -43,6 +46,7 @@ async def get_contact(contact_id: int, db: AsyncSession = Depends(get_db)):
     status_code=status.HTTP_201_CREATED,
 )
 async def create_contact(body: ContactSchema, db: AsyncSession = Depends(get_db)):
+    logger.info(f"Creating new contact: {body}")
     try:
         cont_service = ContactService(db)
         return await cont_service.create_contact(body)
@@ -58,9 +62,11 @@ async def update_contact(
     cont_service = ContactService(db)
     contact = await cont_service.update_contact(contact_id, body)
     if contact is None:
+        logger.warning(f"Contact with ID {contact_id} not found for update")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Contact not found"
         )
+    logger.info(f"Contact with ID {contact_id} updated successfully")
     return contact
 
 
@@ -68,6 +74,7 @@ async def update_contact(
 async def delete_contact(contact_id: int, db: AsyncSession = Depends(get_db)):
     cont_service = ContactService(db)
     await cont_service.remove_contact(contact_id)
+    logger.info(f"Contact with ID {contact_id} deleted successfully")
     return None
 
 
@@ -84,6 +91,7 @@ async def search_contacts(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="No contacts found"
         )
+    logger.info(f"Found {len(contacts)} matching contacts")
     return contacts
 
 
@@ -92,4 +100,6 @@ async def get_upcoming_birthdays(
     days: int = Query(default=7, ge=1), db: AsyncSession = Depends(get_db)
 ):
     contact_service = ContactService(db)
-    return await contact_service.get_upcoming_birthdays(days)
+    birthdays = await contact_service.get_upcoming_birthdays(days)
+    logger.info(f"Found {len(birthdays)} contacts with upcoming birthdays")
+    return birthdays

@@ -18,7 +18,6 @@ def read_root(request: Request):
 @app.get("/api/healthchecker")
 async def healthchecker(db: AsyncSession = Depends(get_db)):
     try:
-        # Make request
         result = await db.execute(text("SELECT 1"))
         result = result.fetchone()
         if result is None:

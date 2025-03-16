@@ -1,8 +1,8 @@
 import logging
-from typing import Sequence, Optional, List
+from typing import Sequence, Optional, List, Any, Coroutine
 from datetime import date, timedelta
 
-from sqlalchemy import select, and_, or_
+from sqlalchemy import select, and_, or_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.entity.models import Contact
@@ -72,15 +72,30 @@ class ContactRepository:
         contacts = await self.db.execute(stmt)
         return contacts.scalars().all()
 
-    async def get_upcoming_birthdays(self, days: int) -> List[Contact]:
+    async def get_upcoming_birthdays(self, days: int) -> list[Contact]:
         today = date.today()
         end_date = today + timedelta(days=days)
-        contacts = await self.db.execute(
-            select(Contact).filter(
-                and_(
-                    Contact.birthday >= today,
-                    Contact.birthday <= end_date,
+
+        query = (
+            select(Contact)
+            .where(
+                or_(
+                    func.date_part("day", Contact.birthday).between(
+                        func.date_part("day", today), func.date_part("day", end_date)
+                    ),
+                    and_(
+                        func.date_part("day", end_date) < func.date_part("day", today),
+                        or_(
+                            func.date_part("day", Contact.birthday)
+                            >= func.date_part("day", today),
+                            func.date_part("day", Contact.birthday)
+                            <= func.date_part("day", end_date),
+                        ),
+                    ),
                 )
             )
+            .order_by(func.date_part("day", Contact.birthday).asc())
         )
-        return contacts.scalars().all()
+
+        result = await self.db.execute(query)
+        return result.scalars().all()
